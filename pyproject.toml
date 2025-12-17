@@ -1,0 +1,22 @@
+[project]
+name = "research_base"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "torch",
+    "torchvision",
+    "pado-optics",
+    "gpsidh @ file:///Users/khchoi/Documents/GitHub/gpsidh",
+    "ipykernel>=7.1.0",
+    "tensorboard>=2.20.0",
+    "scipy",
+    "pillow",
+]
+
+[project.optional-dependencies]
+dev = [
+    "matplotlib",
+]
