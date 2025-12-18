@@ -2,7 +2,6 @@
 
 import os
 import numpy as np
-import scipy.io as sio
 from PIL import Image
 from function_lmmse_demosaicing import function_lmmse_demosaicing
 
@@ -12,10 +11,10 @@ def test_demosaicing():
     print("Testing function_lmmse_demosaicing...")
     
     # Check if D matrix exists
-    d_matrix_path = 'Data/D_Matrix.mat'
+    d_matrix_path = 'Data/D_Matrix.npy'
     if not os.path.exists(d_matrix_path):
         print(f"  ERROR: D matrix file {d_matrix_path} does not exist!")
-        print("  Please ensure D_Matrix.mat is in the Data folder.")
+        print("  Please ensure D_Matrix.npy is in the Data folder.")
         return
     
     # Check if mosaiced image exists
@@ -28,8 +27,7 @@ def test_demosaicing():
     try:
         # Load D matrix
         print("  Loading D matrix...")
-        d_matrix_data = sio.loadmat(d_matrix_path)
-        D = d_matrix_data['D']
+        D = np.load(d_matrix_path, allow_pickle=True)
         print(f"  D matrix shape: {D.shape}")
         
         # Load mosaiced image

@@ -14,7 +14,6 @@ References:
 
 import os
 import numpy as np
-import scipy.io as sio
 from PIL import Image
 import matplotlib.pyplot as plt
 from function_lmmse_demosaicing import function_lmmse_demosaicing
@@ -39,11 +38,22 @@ def imwrite_unicode(filename, img):
             else:
                 img = img.astype(np.uint8)
 
+        # Handle shape: PIL doesn't support (rows, cols, 1) - squeeze single channel dimension
+        if len(img.shape) == 3 and img.shape[2] == 1:
+            img = img.squeeze(2)  # Remove single channel dimension: (rows, cols, 1) -> (rows, cols)
+        
         # Use PIL for saving (handles Unicode paths better)
         if len(img.shape) == 2:
-            Image.fromarray(img).save(filename)
+            Image.fromarray(img, mode='L').save(filename)
         elif len(img.shape) == 3:
-            Image.fromarray(img).save(filename)
+            if img.shape[2] == 3:
+                Image.fromarray(img, mode='RGB').save(filename)
+            elif img.shape[2] == 4:
+                Image.fromarray(img, mode='RGBA').save(filename)
+            else:
+                raise ValueError(f"Unsupported image shape: {img.shape}")
+        else:
+            raise ValueError(f"Unsupported image shape: {img.shape}")
         return True
     except Exception as e:
         print(f"Error saving image {filename}: {e}")
@@ -53,8 +63,9 @@ def imwrite_unicode(filename, img):
 def main():
     """Main function for LMMSE demosaicing script."""
     # Global parameter
-    d_matrix_name = 'D_Matrix.mat'  # If retrained, call D_Matrix_retrained
+    d_matrix_name = 'D_Matrix.npy'  # If retrained, call D_Matrix_retrained.npy
     save = True  # true to save the demosaiced image
+    mosaic = 'auto'  # 'pfa', 'cpfa', or 'auto' - will be auto-detected from D matrix shape
 
     # Load mosaiced image
     mos_img_path = 'Data/im.tif'
@@ -73,52 +84,57 @@ def main():
     plt.axis('off')
     plt.show()
 
-    # Sizes definition
-    height = 2  # height of the superpixel
-    width = 2  # width of the superpixel
-    P = 4  # number of color-pola channels
+    # Load D_Matrix
+    d_matrix_path = os.path.join('Data', d_matrix_name)
+    D = np.load(d_matrix_path, allow_pickle=True)
+
+    # Sizes definition (for display purposes)
+    if mosaic == 'cpfa':
+        height = 4
+        width = 4
+        P = 12
+    else:  # pfa
+        height = 2
+        width = 2
+        P = 4
 
     rows, cols = mos_img.shape[:2]
     r_superpix = int(rows / height)  # number of superpixel in a line
     c_superpix = int(cols / width)  # number of superpixel in a column
 
-    # Load D_Matrix
-    d_matrix_path = os.path.join('Data', d_matrix_name)
-    d_matrix_data = sio.loadmat(d_matrix_path)
-    D = d_matrix_data['D']
-
     # Demosaicing
-    demos_img = function_lmmse_demosaicing(mos_img, D)
+    demos_img = function_lmmse_demosaicing(mos_img, D, mosaic=mosaic)
 
     # Show result images
+    # demos_img shape: (rows, cols, channels, 4) where 4 is polarization angles
+    # For PFA: channels=1 (grayscale), For CPFA: channels=3 (RGB)
+    num_polarizations = 4  # Always 4 polarization angles (0°, 45°, 90°, 135°)
+    
     plt.figure(figsize=(12, 10))
-    plt.subplot(2, 2, 1)
-    plt.imshow(demos_img[:, :, :, 0], cmap='gray' if len(demos_img.shape) == 3 else None)
-    plt.title('Demosaiced image for 0° polarization')
-    plt.axis('off')
-
-    plt.subplot(2, 2, 2)
-    plt.imshow(demos_img[:, :, :, 1], cmap='gray' if len(demos_img.shape) == 3 else None)
-    plt.title('Demosaiced image for 45° polarization')
-    plt.axis('off')
-
-    plt.subplot(2, 2, 3)
-    plt.imshow(demos_img[:, :, :, 2], cmap='gray' if len(demos_img.shape) == 3 else None)
-    plt.title('Demosaiced image for 90° polarization')
-    plt.axis('off')
-
-    plt.subplot(2, 2, 4)
-    plt.imshow(demos_img[:, :, :, 3], cmap='gray' if len(demos_img.shape) == 3 else None)
-    plt.title('Demosaiced image for 135° polarization')
-    plt.axis('off')
+    for pol_idx in range(num_polarizations):
+        plt.subplot(2, 2, pol_idx + 1)
+        img_to_show = demos_img[:, :, :, pol_idx]
+        
+        # Clip values to [0, 1] for display
+        img_to_show = np.clip(img_to_show, 0, 1)
+        
+        # Determine if grayscale or RGB
+        if len(img_to_show.shape) == 2 or (len(img_to_show.shape) == 3 and img_to_show.shape[2] == 1):
+            plt.imshow(img_to_show, cmap='gray')
+        else:
+            plt.imshow(img_to_show)
+        
+        pol_angles = ['0°', '45°', '90°', '135°']
+        plt.title(f'Demosaiced image for {pol_angles[pol_idx]} polarization')
+        plt.axis('off')
 
     plt.tight_layout()
     plt.show()
 
     # Save result
     if save:
-        # Save as .mat file
-        sio.savemat('Data/im_demosaiced.mat', {'DemosImg': demos_img}, format='7.3')
+        # Save as .npy file
+        np.save('Data/im_demosaiced.npy', demos_img)
 
         # Save as multipage TIFF
         output_path = 'Data/im_demosaiced.tif'
@@ -126,17 +142,22 @@ def main():
             os.remove(output_path)
 
         # Save each polarization angle as a separate page
-        for i in range(P):
-            img_to_save = demos_img[:, :, :, i] if len(demos_img.shape) == 4 else demos_img[:, :, i]
-            if i == 0:
-                # First image - create new file
-                imwrite_unicode(output_path, img_to_save)
-            else:
-                # Append to existing file
-                # For multipage TIFF, we'll save as separate files or use PIL
-                img_pil = Image.fromarray((img_to_save * 255).astype(np.uint8) if img_to_save.max() <= 1.0 else img_to_save.astype(np.uint8))
-                # Note: PIL's append_images can be used for multipage TIFF
-                pass  # Simplified - save as separate images or use tifffile library
+        # demos_img shape: (rows, cols, channels, 4) where 4 is polarization angles
+        num_polarizations = 4  # Always 4 polarization angles
+        for pol_idx in range(num_polarizations):
+            img_to_save = demos_img[:, :, :, pol_idx]
+            
+            # Clip values to [0, 1] before saving
+            img_to_save = np.clip(img_to_save, 0, 1)
+            
+            # Handle shape: remove single channel dimension if present
+            if len(img_to_save.shape) == 3 and img_to_save.shape[2] == 1:
+                img_to_save = img_to_save.squeeze(2)
+            
+            # Save each polarization as a separate file (simpler than multipage TIFF)
+            pol_angles = ['0deg', '45deg', '90deg', '135deg']
+            output_path_pol = f'Data/im_demosaiced_{pol_angles[pol_idx]}.tif'
+            imwrite_unicode(output_path_pol, img_to_save)
 
         print('Results saved')
 

@@ -29,12 +29,12 @@ from Function.d_matrix import d_matrix
 def main():
     """Main function for LMMSE retraining script."""
     # Select pfa or cpfa
-    mosaic = 'pfa'
+    mosaic = 'cpfa'
 
     # Load full resolution dataset
     path = os.getcwd()
-    folder_path = os.path.join(path, 'Data', 'Dataset')
-    nbr_of_img = 3
+    folder_path = os.path.join(path, 'Data', 'Dataset_train')
+    nbr_of_img = 100
     full_dataset = load_dataset(
         save=True,
         folder=folder_path,
@@ -59,9 +59,12 @@ def main():
     )
 
     # Save the new re-trained D matrix
-    output_path = os.path.join('Data', 'D_Matrix_retrained.mat')
-    sio.savemat(output_path, {'D': D})
+    output_path = os.path.join('Data', 'D_Matrix_retrained.npy')
+    # sio.savemat(output_path, {'D': D})
+    np.save(output_path, D)
     print('Retrained D matrix saved')
+    print(D.shape)
+    print(D)
 
 
 if __name__ == '__main__':

@@ -3,7 +3,6 @@
 import os
 import numpy as np
 from PIL import Image
-import scipy.io as sio
 
 
 def load_dataset(save=True, folder='', nbr_of_img=3, mosaic='pfa'):
@@ -15,7 +14,7 @@ def load_dataset(save=True, folder='', nbr_of_img=3, mosaic='pfa'):
     name  RGB_img_0  RGB_img_45  RGB_img_90  RGB_img_135
 
     Args:
-        save: Whether to save the dataset as .mat file
+        save: Whether to save the dataset as .npy file
         folder: Path to the dataset folder
         nbr_of_img: Number of images to load
         mosaic: Type of mosaic ('pfa' or 'cpfa')
@@ -47,7 +46,7 @@ def load_dataset(save=True, folder='', nbr_of_img=3, mosaic='pfa'):
         raise ValueError(f"Unknown mosaic type: {mosaic}")
 
     if save:
-        # Convert to cell array format for MATLAB compatibility
+        # Convert to dictionary format for saving
         dataset_dict = {}
         for i, (name, img_0, img_45, img_90, img_135) in enumerate(dataset):
             dataset_dict[f'Dataset_{i+1}'] = {
@@ -57,7 +56,7 @@ def load_dataset(save=True, folder='', nbr_of_img=3, mosaic='pfa'):
                 'img_90': img_90,
                 'img_135': img_135
             }
-        sio.savemat('Data/FullDataset.mat', {'Dataset': dataset_dict}, format='7.3')
+        np.save('Data/FullDataset.npy', dataset_dict)
 
     print('Dataset loaded')
     print('---------------------------------------------------')

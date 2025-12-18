@@ -1,7 +1,6 @@
 """Main code for mosaicing images in datasets."""
 
 import numpy as np
-import scipy.io as sio
 from Function.filter import filter_images
 
 
@@ -47,7 +46,7 @@ def mosaicking(dataset, save=True, folder_path='', mosaic='pfa'):
                 'name': name,
                 'mosaicked': mosaicked_img
             }
-        sio.savemat('Data/MosDataset.mat', {'MosDataset': mos_dataset_dict}, format='7.3')
+        np.save('Data/MosDataset.npy', mos_dataset_dict)
 
     print('Mosaicking done')
 
